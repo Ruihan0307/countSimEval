@@ -1,0 +1,263 @@
+#' Calculate clustering evaluation indicators for simulated data
+#'
+#' @param ddsList cluster_info
+#' @return The value or list of clustering evaluation
+#'
+#' @import
+#'
+#' @export
+calculateClusterParameters <- function(ddsList, cluster_info){
+
+
+  if (!is(ddsList, "list")) {
+    message("ddsList is not a list.")
+
+    #将ddsList提取并赋值为matrix
+    matrix <- as.matrix(ddsList)
+
+    if (ncol(matrix) != length(cluster_info)) {
+      stop("Error: The number of columns in the matrix does not match the length of cluster_info.")
+    }
+
+    #转换为SCE对象
+    sce <- SingleCellExperiment(
+      assays = list(counts = matrix)
+    )
+
+    sce <- logNormCounts(sce)
+
+    ##使用原始数据计算距离
+    #message("使用原始数据计算距离.")
+    #raw_dist <- parallelDist::parDist(t(assays(sce)$counts))
+
+
+    # 执行降维
+    message("reducing the dimensionality of the raw data.")
+    sce <- runTSNE(sce)
+    sce <- runPCA(sce)
+    sce <- runUMAP(sce)
+
+    tsne_matrix <- reducedDim(sce, "TSNE")
+    pca_matrix <- reducedDim(sce, "PCA")
+    umap_matrix <- reducedDim(sce, "UMAP")
+
+    tsne_dist <- stats::dist(tsne_matrix)
+    pca_dist <- stats::dist(pca_matrix)
+    umap_dist <- stats::dist(umap_matrix)
+
+    message("calculating average silhouette width.")
+    #计算ASW
+    tsne_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                 tsne_dist)
+    tsne_average_silhouette <- mean(tsne_silhouette_width[, 3])
+
+    pca_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                pca_dist)
+    pca_average_silhouette <- mean(pca_silhouette_width[, 3])
+
+    umap_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                 umap_dist)
+    umap_average_silhouette <- mean(umap_silhouette_width[, 3])
+
+    #raw_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+    #                                            raw_dist)
+    #raw_average_silhouette <- mean(raw_silhouette_width[, 3])
+
+    message("calculating Connectivity.")
+    #计算连通性
+    tsne_con <- clValid::connectivity(distance = tsne_dist, clusters = cluster_info)
+    pca_con <- clValid::connectivity(distance = pca_dist, clusters = cluster_info)
+    umap_con <- clValid::connectivity(distance = umap_dist, clusters = cluster_info)
+    #raw_con <- clValid::connectivity(distance = raw_dist, clusters = cluster_info)
+
+    message("calculating Dunn index")
+    #计算DUNN指数
+    tsne_dunn <- clValid::dunn(distance = tsne_dist, clusters = as.numeric(as.factor(cluster_info)))
+    pca_dunn <- clValid::dunn(distance = pca_dist, clusters = as.numeric(as.factor(cluster_info)))
+    umap_dunn <- clValid::dunn(distance = umap_dist, clusters = as.numeric(as.factor(cluster_info)))
+    #raw_dunn <- clValid::dunn(distance = raw_dist, clusters = as.numeric(as.factor(cluster_info)))
+
+    message("calculating Calinski Harabasz Index")
+    #计算Calinski - Harabasz指数
+    #raw_CHI <- fpc::calinhara(t(matrix),as.numeric(as.factor(cluster_info)))
+    tsne_CHI <- fpc::calinhara(tsne_matrix,as.numeric(as.factor(cluster_info)))
+    pca_CHI <- fpc::calinhara(pca_matrix,as.numeric(as.factor(cluster_info)))
+    umap_CHI <- fpc::calinhara(umap_matrix,as.numeric(as.factor(cluster_info)))
+
+    message("calculating Davies-Bouldin Index")
+    #计算戴维斯 - 布尔丁(DBI)指数
+    #raw_DB <- clusterSim::index.DB(t(matrix), as.numeric(as.factor(cluster_info)))$DB
+    tsne_DB <- clusterSim::index.DB(tsne_matrix, as.numeric(as.factor(cluster_info)))$DB
+    pca_DB <- clusterSim::index.DB(pca_matrix, as.numeric(as.factor(cluster_info)))$DB
+    umap_DB <- clusterSim::index.DB(umap_matrix, as.numeric(as.factor(cluster_info)))$DB
+
+    data_list <- list(
+      ASW = list(
+
+        PCA_asw = pca_average_silhouette,
+        TSNE_asw = tsne_average_silhouette,
+        UMAP_asw = umap_average_silhouette
+      ),
+      Dunn = list(
+
+        PCA_Dunn = pca_dunn,
+        TSNE_Dunn = tsne_dunn,
+        UMAP_Dunn = umap_dunn
+      ),
+      connectivity = list(
+
+        PCA_connectivity = pca_con,
+        TSNE_connectivity = tsne_con,
+        UMAP_connectivity = umap_con
+      ),
+      CHI = list(
+
+        PCA_CHI = pca_CHI,
+        TSNE_CHI = tsne_CHI,
+        UMAP_CHI = umap_CHI
+      ),
+      DBI = list(
+
+        PCA_DBI = pca_DB,
+        TSNE_DBI = tsne_DB,
+        UMAP_DBI = umap_DB
+      )
+
+    )
+
+    return(data_list)
+  }
+  if (length(setdiff(unique(names(ddsList)),
+                     c("", NA, NULL))) != length(ddsList)) {
+    stop("If ddsList is List, it must be a named list, ",
+         "with a unique name for each element.", call. = FALSE)
+  }
+  if (!all(vapply(ddsList, function(w) {
+    is(w, "DESeqDataSet") | is(w, "data.frame") | is(w, "matrix")
+  }, FALSE))) {
+    stop("All elements of ddsList must be DESeqDataSet objects, data.frames ",
+         "or matrices. See the DESeq2 Bioconductor package ",
+         "(http://bioconductor.org/packages/release/bioc/html/DESeq2.html) ",
+         "for more information about the DESeqDataSet class.", call. = FALSE)
+  }
+
+  nDatasets <- length(ddsList)
+  message(paste("There are a total of ", nDatasets, "datasets"))
+
+  data_list <- lapply(ddsList, function(matrix) {
+    # 在这里对每个dds对象进行操作
+
+    if (ncol(matrix) != length(cluster_info)) {
+      stop("Error: The number of columns in the matrix does not match the length of cluster_info.")
+    }
+
+    #转换为SCE对象
+    sce <- SingleCellExperiment(
+      assays = list(counts = matrix)
+    )
+
+    sce <- logNormCounts(sce)
+
+    #使用原始数据计算距离
+    message("使用原始数据计算距离.")
+    #raw_dist <- parallelDist::parDist(t(assays(sce)$counts))
+
+
+    # 执行降维
+    message("reducing the dimensionality of the raw data.")
+    sce <- runTSNE(sce)
+    sce <- runPCA(sce)
+    sce <- runUMAP(sce)
+
+    tsne_matrix <- reducedDim(sce, "TSNE")
+    pca_matrix <- reducedDim(sce, "PCA")
+    umap_matrix <- reducedDim(sce, "UMAP")
+
+    tsne_dist <- stats::dist(tsne_matrix)
+    pca_dist <- stats::dist(pca_matrix)
+    umap_dist <- stats::dist(umap_matrix)
+
+    message("calculating average silhouette width.")
+    #计算ASW
+    tsne_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                 tsne_dist)
+    tsne_average_silhouette <- mean(tsne_silhouette_width[, 3])
+
+    pca_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                pca_dist)
+    pca_average_silhouette <- mean(pca_silhouette_width[, 3])
+
+    umap_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+                                                 umap_dist)
+    umap_average_silhouette <- mean(umap_silhouette_width[, 3])
+
+    #raw_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(cluster_info)),
+    #                                            raw_dist)
+    #raw_average_silhouette <- mean(raw_silhouette_width[, 3])
+
+    message("calculating Connectivity.")
+    #计算连通性
+    tsne_con <- clValid::connectivity(distance = tsne_dist, clusters = cluster_info)
+    pca_con <- clValid::connectivity(distance = pca_dist, clusters = cluster_info)
+    umap_con <- clValid::connectivity(distance = umap_dist, clusters = cluster_info)
+    #raw_con <- clValid::connectivity(distance = raw_dist, clusters = cluster_info)
+
+    message("calculating Dunn index")
+    #计算DUNN指数
+    tsne_dunn <- clValid::dunn(distance = tsne_dist, clusters = as.numeric(as.factor(cluster_info)))
+    pca_dunn <- clValid::dunn(distance = pca_dist, clusters = as.numeric(as.factor(cluster_info)))
+    umap_dunn <- clValid::dunn(distance = umap_dist, clusters = as.numeric(as.factor(cluster_info)))
+    #raw_dunn <- clValid::dunn(distance = raw_dist, clusters = as.numeric(as.factor(cluster_info)))
+
+    message("calculating Calinski Harabasz Index")
+    #计算Calinski - Harabasz指数
+    #raw_CHI <- fpc::calinhara(t(matrix),as.numeric(as.factor(cluster_info)))
+    tsne_CHI <- fpc::calinhara(tsne_matrix,as.numeric(as.factor(cluster_info)))
+    pca_CHI <- fpc::calinhara(pca_matrix,as.numeric(as.factor(cluster_info)))
+    umap_CHI <- fpc::calinhara(umap_matrix,as.numeric(as.factor(cluster_info)))
+
+    message("calculating Davies-Bouldin Index")
+    #计算戴维斯 - 布尔丁(DBI)指数
+    #raw_DB <- clusterSim::index.DB(t(matrix), as.numeric(as.factor(cluster_info)))$DB
+    tsne_DB <- clusterSim::index.DB(tsne_matrix, as.numeric(as.factor(cluster_info)))$DB
+    pca_DB <- clusterSim::index.DB(pca_matrix, as.numeric(as.factor(cluster_info)))$DB
+    umap_DB <- clusterSim::index.DB(umap_matrix, as.numeric(as.factor(cluster_info)))$DB
+
+    res <- list(
+      ASW = list(
+
+        PCA_asw = pca_average_silhouette,
+        TSNE_asw = tsne_average_silhouette,
+        UMAP_asw = umap_average_silhouette
+      ),
+      Dunn = list(
+
+        PCA_Dunn = pca_dunn,
+        TSNE_Dunn = tsne_dunn,
+        UMAP_Dunn = umap_dunn
+      ),
+      connectivity = list(
+
+        PCA_connectivity = pca_con,
+        TSNE_connectivity = tsne_con,
+        UMAP_connectivity = umap_con
+      ),
+      CHI = list(
+
+        PCA_CHI = pca_CHI,
+        TSNE_CHI = tsne_CHI,
+        UMAP_CHI = umap_CHI
+      ),
+      DBI = list(
+
+        PCA_DBI = pca_DB,
+        TSNE_DBI = tsne_DB,
+        UMAP_DBI = umap_DB
+      )
+
+    )
+    return(res)
+  })
+  return(data_list)
+
+}

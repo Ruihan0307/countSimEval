@@ -1,0 +1,35 @@
+Package: MyNewProject
+Type: Package
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 3.5)
+Imports: 
+    Matrix,
+    edgeR,
+    dplyr,
+    KernSmooth,
+    DESeq2,
+    SummarizedExperiment,
+    genefilter,
+    fasano.franceschini.test,
+    SingleCellExperiment,
+    cluster,
+    stats,
+    scater,
+    ks
+Suggests:
+    knitr,
+    testthat (>= 3.0.0)
+RoxygenNote: 7.3.2
+Config/Needs/website: FALSE
+Config/Needs/quarto: FALSE
+VignetteBuilder: knitr
+Config/testthat/edition: 3

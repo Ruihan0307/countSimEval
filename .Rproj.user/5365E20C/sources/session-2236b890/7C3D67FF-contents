@@ -1,0 +1,50 @@
+library("dplyr")
+library("zellkonverter")
+rm(list = ls())
+
+source("R/calculateCorrelations.R")
+source("R/calculateDispersionsddsList.R")
+source("R/calculateStats.R")
+source("R/makeDF.R")
+source("R/StandardizedCalculationScore.R")
+source("R/calculateClusterParameters.R")
+
+set.seed(123)
+
+origin_sce <- readH5AD("E:/Datas/PythonDatas/InHouse/origin/filtered_rna.h5ad")
+
+scDiffusion_sce <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scDiffusion_sim_all_num_as_origin.h5ad")
+
+#scGAN_sce_1 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scGAN_simu_Inhouse.h5ad")
+
+#scVI_sce <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scVI_simu_Inhouse.h5ad")
+
+#对scGAN的内容进行过滤，只保存可能是的细胞类型
+#scGAN_sce <- subset(scGAN_sce_1, , cluster %in% c(0, 1))
+#scGAN_sce <- scGAN_sce_1
+
+origin_sce$group <- origin_sce$cell_type
+assays(origin_sce)$counts <- assays(origin_sce)$X
+
+scDiffusion_sce$group <- scDiffusion_sce$label
+assays(scDiffusion_sce)$counts <- assays(scDiffusion_sce)$X
+
+#scGAN_sce$group <- scGAN_sce$cluster
+#assays(scGAN_sce)$counts <- assays(scGAN_sce)$X
+
+#scVI_sce$group <- scVI_sce$celltype
+#assays(scVI_sce)$counts <- assays(scVI_sce)$X
+
+SCEList <- list(origin = origin_sce,scDiffusion = scDiffusion_sce)
+
+origin_sce_result <- calculateClusterParameters(SCEList)
+
+
+
+#saveRDS(origin_sce_result, "E:/R_Files/cluster_parameters/Python_results/origin_results/Python_origin_InHouse.rds")
+
+#saveRDS(scDiffusion_sce_result, "E:/R_Files/cluster_parameters/Python_results/InHouse/scDiffusion_cluster_InHouse.rds")
+
+#saveRDS(scGAN_sce_result, "E:/R_Files/cluster_parameters/Python_results/InHouse/scGAN_cluster_InHouse.rds")
+
+#saveRDS(scVI_sce_result, "E:/R_Files/cluster_parameters/Python_results/InHouse/scVI_cluster_InHouse.rds")

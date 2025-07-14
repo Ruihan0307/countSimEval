@@ -1,0 +1,175 @@
+#' Construct data frame with pairwise statistics
+#'
+#' Construct a data frame containing statistics and p-values for pairwise
+#' comparison of data sets.
+#'
+
+
+
+
+
+StandardizedCalculationScore <- function(tmp_list){
+
+  #standardization
+  Runs_statistic <- lapply(tmp_list, function(x) {
+
+    if(!is.null(x$`Runs statistic`)){
+
+      if(all(x$`Runs statistic` == x$`Runs statistic`[1])){
+        x$`Runs statistic`=tibble(V1=rep(0, length(x$`Runs statistic`)))
+      } else{
+
+        x$`Runs statistic` <- scale(x$`Runs statistic`)  # 使用scale函数进行标准化
+
+        min_val <- min(x$`Runs statistic`,na.rm = TRUE)
+        max_val <- max(x$`Runs statistic`,na.rm = TRUE)
+        normalized_data <- (x$`Runs statistic` - min_val) / (max_val - min_val)
+
+        x$`Runs statistic` <- as.data.frame(1 - normalized_data)
+      }
+    }
+  })
+
+
+  Multi_KS <- lapply(tmp_list, function(x) {
+    if(!is.null(x$`Multivariate KS statistic`)){
+
+      if(all(x$`Multivariate KS statistic` == x$`Multivariate KS statistic`[1])){
+        x$`Multivariate KS statistic`=tibble(V1=rep(0, length(x$`Multivariate KS statistic`)))
+      }
+      else{
+
+        x$`Multivariate KS statistic` <- abs(x$`Multivariate KS statistic`)   #多元KS需计算绝对值
+        x$`Multivariate KS statistic` <- scale(x$`Multivariate KS statistic`)  # 使用scale函数进行标准化
+
+        min_val <- min(x$`Multivariate KS statistic`,na.rm = TRUE)
+        max_val <- max(x$`Multivariate KS statistic`,na.rm = TRUE)
+        normalized_data <- (x$`Multivariate KS statistic` - min_val) / (max_val - min_val)
+
+        x$`Multivariate KS statistic` <- as.data.frame(1 - normalized_data)
+      }
+
+    }
+
+
+
+  })
+  KDE_T <- lapply(tmp_list, function(x) {
+    if(!is.null(x$`KDE T-statistic`)){
+
+      if(all(x$`KDE T-statistic` == x$`KDE T-statistic`[1])){
+        x$`KDE T-statistic`=tibble(V1=rep(0, length(x$`KDE T-statistic`)))
+      }
+      else{
+        x$`KDE T-statistic` <- abs(x$`KDE T-statistic`)
+        x$`KDE T-statistic` <- scale(x$`KDE T-statistic`)  # 使用scale函数进行标准化
+
+        min_val <- min(x$`KDE T-statistic`,na.rm = TRUE)
+        max_val <- max(x$`KDE T-statistic`,na.rm = TRUE)
+        normalized_data <- (x$`KDE T-statistic` - min_val) / (max_val - min_val)
+
+        x$`KDE T-statistic` <- as.data.frame(1 - normalized_data)
+      }
+
+    }
+
+
+  })
+
+  KDE_Z <- lapply(tmp_list, function(x) {
+
+
+    if(!is.null(x$`KDE Z-statistic`)){
+
+      if(all(x$`KDE Z-statistic` == x$`KDE Z-statistic`[1])){
+        x$`KDE Z-statistic`=tibble(V1=rep(0, length(x$`KDE Z-statistic`)))
+      }
+      else{
+        x$`KDE Z-statistic` <- abs(x$`KDE Z-statistic`)
+        x$`KDE Z-statistic` <- scale(x$`KDE Z-statistic`)  # 使用scale函数进行标准化
+
+        min_val <- min(x$`KDE Z-statistic`,na.rm = TRUE)
+        max_val <- max(x$`KDE Z-statistic`,na.rm = TRUE)
+        normalized_data <- (x$`KDE Z-statistic` - min_val) / (max_val - min_val)
+
+        x$`KDE Z-statistic` <- as.data.frame(1 - normalized_data)
+      }
+    }
+  })
+
+
+  tmp_list$AveLogCPM_Tagwise$`Multivariate KS statistic` <- Multi_KS$AveLogCPM_Tagwise$V1
+  tmp_list$AveLogCPM_Tagwise$`KDE T-statistic` <- KDE_T$AveLogCPM_Tagwise$V1
+  tmp_list$AveLogCPM_Tagwise$`KDE Z-statistic` <- KDE_Z$AveLogCPM_Tagwise$V1
+
+
+
+  tmp_list$Mean_dispersion$`Multivariate KS statistic` <- Multi_KS$Mean_dispersion$V1
+  tmp_list$Mean_dispersion$`KDE T-statistic` <- KDE_T$Mean_dispersion$V1
+  tmp_list$Mean_dispersion$`KDE Z-statistic` <- KDE_Z$Mean_dispersion$V1
+
+
+  tmp_list$Mean_Var$`Multivariate KS statistic` <- Multi_KS$Mean_Var$V1
+  tmp_list$Mean_Var$`KDE T-statistic` <- KDE_T$Mean_Var$V1
+  tmp_list$Mean_Var$`KDE Z-statistic` <- KDE_Z$Mean_Var$V1
+
+
+  tmp_list$Lib_Fraczero$`Multivariate KS statistic` <- Multi_KS$Lib_Fraczero$V1
+  tmp_list$Lib_Fraczero$`KDE T-statistic` <- KDE_T$Lib_Fraczero$V1
+  tmp_list$Lib_Fraczero$`KDE Z-statistic` <- KDE_Z$Lib_Fraczero$V1
+
+  tmp_list$AveLogCPM_Fraczero$`Multivariate KS statistic` <- Multi_KS$AveLogCPM_Fraczero$V1
+  tmp_list$AveLogCPM_Fraczero$`KDE T-statistic` <- KDE_T$AveLogCPM_Fraczero$V1
+  tmp_list$AveLogCPM_Fraczero$`KDE Z-statistic` <- KDE_Z$AveLogCPM_Fraczero$V1
+
+  tmp_list$Lib$`Runs statistic` <- Runs_statistic$Lib$V1
+  tmp_list$TMM$`Runs statistic` <- Runs_statistic$TMM$V1
+  tmp_list$EffLibsize$`Runs statistic` <- Runs_statistic$EffLibsize$V1
+  tmp_list$AveLogCPM$`Runs statistic` <- Runs_statistic$AveLogCPM$V1
+  tmp_list$sampleFraczero$`Runs statistic` <- Runs_statistic$sampleFraczero$V1
+  tmp_list$featureFraczero$`Runs statistic` <- Runs_statistic$featureFraczero$V1
+  tmp_list$sampleCorrelation$`Runs statistic` <- Runs_statistic$sampleCorrelation$V1
+  tmp_list$featureCorrelation$`Runs statistic` <- Runs_statistic$featureCorrelation$V1
+
+  #Calculate Score
+  tmp_list <- lapply(tmp_list, function(element) {
+
+    if (length(colnames(element)) == 8) {
+      element$score <- (1 - element$`NN rejection fraction`) +
+        (1 - abs(element$`Average silhouette width`))/2 +
+        (1 - abs(element$`Average local silhouette width`))/2 +
+        element$`Multivariate KS statistic` +
+        element$`KDE Z-statistic`
+    }else{
+      element$score <- (1-element$`K-S statistic`)+(1-element$`Scaled area between eCDFs`)+
+                        (1-element$`Runs statistic`)+(1-element$`NN rejection fraction`)+
+                        (1-abs(element$`Average silhouette width`))/2+(1-abs(element$`Average local silhouette width`))/2
+    }
+    return(element)
+  })
+  rank <- tmp_list$AveLogCPM_Tagwise[c('dataset1','dataset2')]
+  rank$score <- 0
+
+
+  #sum Score
+  for(element in tmp_list){
+    for(i in 1:nrow(rank)){
+      rank$score[i]<-element$score[i]+rank$score[i]
+    }
+  }
+
+  #rank sum Score
+  sorted_rank <- rank[order(-rank$score), ]
+  rownames(sorted_rank) <- rownames(rank)
+
+  #rank the scores of each attribute
+  tmp_list <- lapply(tmp_list, function(element) {
+      sorted_element <- element[order(element$score, decreasing = TRUE), ]
+    })
+
+  tmp_list$sorted_rank <- sorted_rank
+  return(tmp_list)
+
+}
+
+

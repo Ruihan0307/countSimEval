@@ -1,0 +1,55 @@
+
+library(Matrix)
+library(edgeR)
+library(dplyr)
+library(KernSmooth)
+library(DESeq2)
+library(SummarizedExperiment)
+library(genefilter)
+library(fasano.franceschini.test)
+library(SingleCellExperiment)
+library(cluster)
+library(stats)
+library(scater)
+library(ks)
+library(zellkonverter)
+
+rm(list = ls())
+
+source("R/calcDataProperty.R")
+source("R/calculateCorrelations.R")
+source("R/calculateDispersionsddsList.R")
+source("R/calculateStats.R")
+source("R/makeDF.R")
+source("R/StandardizedCalculationScore.R")
+
+
+
+origin_sce <- readH5AD("E:/Datas/PythonDatas/InHouse/origin/filtered_rna.h5ad")
+#simu_sce1 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/LSH-GAN_sim.h5ad")
+simu_sce2 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scDiffusion_sim_all_num_as_origin.h5ad")
+simu_sce3 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scGAN_simu_Inhouse.h5ad")
+simu_sce4 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scRDiT_sim.h5ad")
+simu_sce5 <- readH5AD("E:/Datas/PythonDatas/InHouse/simu/scVI_simu_Inhouse.h5ad")
+
+assayNames(origin_sce)[assayNames(origin_sce) == "X"] <- "counts"
+#assayNames(simu_sce1)[assayNames(simu_sce1) == "X"] <- "counts"
+assayNames(simu_sce2)[assayNames(simu_sce2) == "X"] <- "counts"
+assayNames(simu_sce3)[assayNames(simu_sce3) == "X"] <- "counts"
+assayNames(simu_sce4)[assayNames(simu_sce4) == "X"] <- "counts"
+assayNames(simu_sce5)[assayNames(simu_sce5) == "X"] <- "counts"
+
+assays(simu_sce3)$counts <- as.matrix(assays(simu_sce3)$counts)
+
+
+simu1[simu1 < 0] <- 0  #将负数转化为0
+
+ddList <- list( origin = origin, LSH_GAN = simu1, scDiffusion = simu2, scGAN = simu3, scRDiT = simu4, scVI = simu5)
+
+SCEList <- list( origin = origin_sce, scDiffusion = simu_sce2, scGAN = simu_sce3, scRDiT = simu_sce4, scVI = simu_sce5)
+
+test <- calcDataPropertyScores(SCEList)
+
+#saveRDS(test,"E:/R_Files/countsimQC/countsimQC_report/Pythonresult/Inhouse_result.rds")
+
+#df <- StandardizedCalculationScore(tmp_list = ttt)

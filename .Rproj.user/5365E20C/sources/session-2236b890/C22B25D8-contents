@@ -1,0 +1,272 @@
+#' Calculate clustering evaluation indicators for simulated data
+#'
+#' @param ddsList batch_info
+#' @return The value or list of clustering evaluation
+#'
+#' @import mclust stats scater kBET
+#'
+#' @export
+#'
+calculateBatchParameters <- function(ddsList, batch_info){
+
+if (!is(ddsList, "list")) {
+  message("ddsList is not a list.")
+
+  #将ddsList提取并赋值为matrix
+  matrix <- ddsList
+
+  if (ncol(matrix) != length(batch_info)) {
+    stop("Error: The number of columns in the matrix does not match the length of batch_info.")
+  }
+
+  #转换为SCE对象
+  sce <- SingleCellExperiment(
+    assays = list(counts = matrix)
+  )
+
+  sce <- logNormCounts(sce)
+
+  # 执行降维
+  message("reducing the dimensionality of the raw data.")
+  sce <- runTSNE(sce)
+  sce <- runPCA(sce)
+  sce <- runUMAP(sce)
+
+  tsne_matrix <- reducedDim(sce, "TSNE")
+  pca_matrix <- reducedDim(sce, "PCA")
+  umap_matrix <- reducedDim(sce, "UMAP")
+
+  tsne_dist <- stats::dist(tsne_matrix)
+  pca_dist <- stats::dist(pca_matrix)
+  umap_dist <- stats::dist(umap_matrix)
+
+  k <- round(sqrt(length(batch_info)))
+
+  #kBET计算
+  message("Calculating kBET.")
+  pca_kBET <- kBET(df = pca_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+  tsne_kBET <- kBET(df = tsne_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+  umap_kBET <- kBET(df = umap_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+
+  #batch silhouette计算
+  message("Calculating ASW.")
+  pca_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                          pca_dist)
+  pca_average_silhouette <- mean(pca_silhouette_width[, 3])
+
+  tsne_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                               tsne_dist)
+  tsne_average_silhouette <- mean(tsne_silhouette_width[, 3])
+
+  umap_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                               umap_dist)
+  umap_average_silhouette <- mean(umap_silhouette_width[, 3])
+
+  #LISI
+  message("Calculating LISI.")
+  pca_LISI <- lisi::compute_lisi(pca_matrix,
+                                 meta_data =  data.frame("batch" = batch_info),
+                                 label_colnames = "batch",
+                                 perplexity = k)
+  pca_meanLISI <- mean(pca_LISI$batch)
+
+  tsne_LISI <- lisi::compute_lisi(tsne_matrix,
+                                 meta_data =  data.frame("batch" = batch_info),
+                                 label_colnames = "batch",
+                                 perplexity = k)
+  tsne_meanLISI <- mean(tsne_LISI$batch)
+
+  umap_LISI <- lisi::compute_lisi(umap_matrix,
+                                 meta_data =  data.frame("batch" = batch_info),
+                                 label_colnames = "batch",
+                                 perplexity = k)
+  umap_meanLISI <- mean(umap_LISI$batch)
+
+
+  #ARI
+  message("Calculating ARI.")
+  pca_kmeans_result <- kmeans(pca_matrix, centers = 2, nstart = 25)
+  pca_cluster_labels <- pca_kmeans_result$cluster
+  pca_ARI <- mclust::adjustedRandIndex(pca_cluster_labels,batch_info)
+
+  tsne_kmeans_result <- kmeans(tsne_matrix, centers = 2, nstart = 25)
+  tsne_cluster_labels <- tsne_kmeans_result$cluster
+  tsne_ARI <- mclust::adjustedRandIndex(tsne_cluster_labels,batch_info)
+
+  umap_kmeans_result <- kmeans(umap_matrix, centers = 2, nstart = 25)
+  umap_cluster_labels <- umap_kmeans_result$cluster
+  umap_ARI <- mclust::adjustedRandIndex(umap_cluster_labels,batch_info)
+
+  data_list <- list(
+    kBET = list(
+      PCA_kBET = pca_kBET,
+      TSNE_kBET = tsne_kBET,
+      UMAP_kBET = umap_kBET
+    ),
+    ASW = list(
+      PCA_ASW = pca_average_silhouette,
+      TSNE_ASW = tsne_average_silhouette,
+      UMAP_ASW = umap_average_silhouette
+    ),
+    LISI = list(
+      PCA_LISI = pca_meanLISI,
+      TSNE_LISI = tsne_meanLISI,
+      UMAP_LISI = umap_meanLISI
+    ),
+    ARI = list(
+      PCA_ARI = pca_ARI,
+      TSNE_ARI = tsne_ARI,
+      UMAP_ARI = umap_ARI
+    )
+  )
+
+  return(data_list)
+}
+if (length(setdiff(unique(names(ddsList)),
+                   c("", NA, NULL))) != length(ddsList)) {
+  stop("If ddsList is List, it must be a named list, ",
+       "with a unique name for each element.", call. = FALSE)
+}
+if (!all(vapply(ddsList, function(w) {
+  is(w, "DESeqDataSet") | is(w, "data.frame") | is(w, "matrix")
+}, FALSE))) {
+  stop("All elements of ddsList must be DESeqDataSet objects, data.frames ",
+       "or matrices. See the DESeq2 Bioconductor package ",
+       "(http://bioconductor.org/packages/release/bioc/html/DESeq2.html) ",
+       "for more information about the DESeqDataSet class.", call. = FALSE)
+}
+
+nDatasets <- length(ddsList)
+message(paste("There are a total of ", nDatasets, "datasets"))
+
+data_list <- lapply(ddsList, function(matrix) {
+  # 在这里对每个dds对象进行操作
+
+  if (ncol(matrix) != length(batch_info)) {
+    stop("Error: The number of columns in the matrix does not match the length of batch_info.")
+  }
+
+  #转换为SCE对象
+  sce <- SingleCellExperiment(
+    assays = list(counts = matrix)
+  )
+
+  sce <- logNormCounts(sce)
+
+
+
+
+
+
+
+  # 执行降维
+  message("reducing the dimensionality of the raw data.")
+  sce <- runTSNE(sce)
+  sce <- runPCA(sce)
+  sce <- runUMAP(sce)
+
+  tsne_matrix <- reducedDim(sce, "TSNE")
+  pca_matrix <- reducedDim(sce, "PCA")
+  umap_matrix <- reducedDim(sce, "UMAP")
+
+  tsne_dist <- stats::dist(tsne_matrix)
+  pca_dist <- stats::dist(pca_matrix)
+  umap_dist <- stats::dist(umap_matrix)
+
+  k <- round(sqrt(length(batch_info)))
+
+  #kBET计算
+  message("Calculating kBET.")
+  pca_kBET <- kBET(df = pca_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+  tsne_kBET <- kBET(df = tsne_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+  umap_kBET <- kBET(df = umap_matrix, k0 = k, batch = as.numeric(as.factor(batch_info)))
+
+  #batch silhouette计算
+  message("Calculating ASW.")
+  pca_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                              pca_dist)
+  pca_average_silhouette <- mean(pca_silhouette_width[, 3])
+
+  tsne_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                               tsne_dist)
+  tsne_average_silhouette <- mean(tsne_silhouette_width[, 3])
+
+  umap_silhouette_width <- cluster::silhouette(x = as.numeric(as.factor(batch_info)),
+                                               umap_dist)
+  umap_average_silhouette <- mean(umap_silhouette_width[, 3])
+
+  #LISI
+  message("Calculating LISI.")
+  pca_LISI <- lisi::compute_lisi(pca_matrix,
+                                 meta_data =  data.frame("batch" = batch_info),
+                                 label_colnames = "batch",
+                                 perplexity = k)
+  pca_meanLISI <- mean(pca_LISI$batch)
+
+  tsne_LISI <- lisi::compute_lisi(tsne_matrix,
+                                  meta_data =  data.frame("batch" = batch_info),
+                                  label_colnames = "batch",
+                                  perplexity = k)
+  tsne_meanLISI <- mean(tsne_LISI$batch)
+
+  umap_LISI <- lisi::compute_lisi(umap_matrix,
+                                  meta_data =  data.frame("batch" = batch_info),
+                                  label_colnames = "batch",
+                                  perplexity = k)
+  umap_meanLISI <- mean(umap_LISI$batch)
+
+
+  #ARI
+  message("Calculating ARI.")
+  pca_kmeans_result <- kmeans(pca_matrix, centers = 2, nstart = 25)
+  pca_cluster_labels <- pca_kmeans_result$cluster
+  pca_ARI <- mclust::adjustedRandIndex(pca_cluster_labels,batch_info)
+
+  tsne_kmeans_result <- kmeans(tsne_matrix, centers = 2, nstart = 25)
+  tsne_cluster_labels <- tsne_kmeans_result$cluster
+  tsne_ARI <- mclust::adjustedRandIndex(tsne_cluster_labels,batch_info)
+
+  umap_kmeans_result <- kmeans(umap_matrix, centers = 2, nstart = 25)
+  umap_cluster_labels <- umap_kmeans_result$cluster
+  umap_ARI <- mclust::adjustedRandIndex(umap_cluster_labels,batch_info)
+
+
+
+
+
+
+
+
+
+
+
+
+
+  res <- list(
+    kBET = list(
+      PCA_kBET = pca_kBET,
+      TSNE_kBET = tsne_kBET,
+      UMAP_kBET = umap_kBET
+    ),
+    ASW = list(
+      PCA_ASW = pca_average_silhouette,
+      TSNE_ASW = tsne_average_silhouette,
+      UMAP_ASW = umap_average_silhouette
+    ),
+    LISI = list(
+      PCA_LISI = pca_meanLISI,
+      TSNE_LISI = tsne_meanLISI,
+      UMAP_LISI = umap_meanLISI
+    ),
+    ARI = list(
+      PCA_ARI = pca_ARI,
+      TSNE_ARI = tsne_ARI,
+      UMAP_ARI = umap_ARI
+    )
+
+  )
+  return(res)
+})
+return(data_list)
+
+}

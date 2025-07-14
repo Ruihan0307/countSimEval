@@ -1,0 +1,185 @@
+#' Calculate data attribute statistics and P value
+#'
+#' @param ddsList maxNForDisp maxNForCorr permutationPvalues nPermutations subsampleSize kfrac kmin
+#' @return Calculate data attribute statistics and P value
+#'
+#' @import dplyr
+#'
+#' @export
+hello <- function(ddsList, maxNForDisp = Inf, maxNForCorr = 25, permutationPvalues = FALSE, nPermutations = NULL,
+                  subsampleSize = 1000, kfrac = 0.05, kmin = 5, calcRanking = TRUE) {
+  set.seed(123)
+  print("Calculate data attribute statistics and P value")
+  ## --------------------------- ddsList ----------------------------------- ##
+  ## Raise an error if ddsList is not a named list of DESeqDataSets/data
+  ## frames/matrices
+  if (!is(ddsList, "list")) {
+    stop("ddsList must be a list.", call. = FALSE)
+  }
+  if (length(setdiff(unique(names(ddsList)),
+                     c("", NA, NULL))) != length(ddsList)) {
+    stop("ddsList must be a named list, ",
+         "with a unique name for each element.", call. = FALSE)
+  }
+  if (!all(vapply(ddsList, function(w) {
+    is(w, "DESeqDataSet") | is(w, "data.frame") | is(w, "matrix")
+  }, FALSE))) {
+    stop("All elements of ddsList must be DESeqDataSet objects, data.frames ",
+         "or matrices. See the DESeq2 Bioconductor package ",
+         "(http://bioconductor.org/packages/release/bioc/html/DESeq2.html) ",
+         "for more information about the DESeqDataSet class.", call. = FALSE)
+  }
+
+  ## If some objects are data frames or matrices, convert them into
+  ## DESeqDataSets
+  ddsList <- lapply(ddsList, function(ds) {
+    if (is(ds, "DESeqDataSet")) {
+      ds
+    } else {
+      DESeq2::DESeqDataSetFromMatrix(
+        countData = round(as.matrix(ds)),
+        colData = data.frame(sample = seq_len(ncol(ds))),
+        design = ~ 1)
+    }
+  })
+  stopifnot(all(vapply(ddsList, function(w) is(w, "DESeqDataSet"), FALSE)))
+
+
+
+  ##数据集数
+  nDatasets <- length(ddsList)
+  message(paste("There are a total of ", nDatasets, "datasets"))
+
+  if(nDatasets==1){
+    stop("ddsList must be a named list, ",
+         "must have at least two elements.", call. = FALSE)
+  }
+
+  message("Calculating dispersions. This can take some time, please be patient.")
+
+  if (is.finite(maxNForDisp)) {
+    msg <- paste0("If there are more than ", maxNForDisp,
+                  " samples in a data set, the dispersions are calculated using ",
+                  maxNForDisp, " randomly selected samples.")
+  } else {
+    msg <- ""
+  }
+  obj <- calculateDispersionsddsList(ddsList = ddsList,
+                                     maxNForDisp = maxNForDisp)
+  message("Calculating sample correlations.")
+  sampleCorrDF <- calculateSampleCorrs(ddsList = obj,
+                                       maxNForCorr = maxNForCorr)
+  message("Calculating feature correlations.")
+  featureCorrDF <- calculateFeatureCorrs(ddsList = obj,
+                                         maxNForCorr = maxNForCorr)
+
+  #细胞属性值计算
+  sampleDF <- lapply(obj, function(x) {
+    data.frame(
+      Libsize = colSums(x$dge$counts),
+      Fraczero = colMeans(x$dge$counts == 0),
+      TMM = x$dge$samples$norm.factors
+    ) %>% dplyr::mutate(EffLibsize = Libsize * TMM)
+  })
+  ns <- sapply(sampleDF, nrow)
+  sampleDF <- do.call(rbind, sampleDF) %>%
+    dplyr::mutate(dataset = rep(names(sampleDF), ns))
+
+
+
+  #基因属性值计算
+  featureDF <- lapply(obj, function(x) {
+    data.frame(
+      Tagwise = sqrt(x$dge$tagwise.dispersion),
+      Common = sqrt(x$dge$common.dispersion),
+      Trend = sqrt(x$dge$trended.dispersion),
+      AveLogCPM = x$dge$AveLogCPM,
+      AveLogCPMDisp = x$dge$AveLogCPMDisp,
+      average_log2_cpm = apply(edgeR::cpm(x$dge, prior.count = 2, log = TRUE), 1, mean),
+      variance_log2_cpm = apply(edgeR::cpm(x$dge, prior.count = 2, log = TRUE), 1, var),
+      Fraczero = rowMeans(x$dge$counts == 0),
+      dispGeneEst = rowData(x$dds)$dispGeneEst,
+      dispFit = rowData(x$dds)$dispFit,
+      dispFinal = rowData(x$dds)$dispersion,
+      baseMeanDisp = rowData(x$dds)$baseMeanDisp,
+      baseMean = rowData(x$dds)$baseMean
+    )
+  })
+  ns <- sapply(featureDF, nrow)
+  featureDF <- do.call(rbind, featureDF) %>%
+    dplyr::mutate(dataset = rep(names(featureDF), ns))
+
+
+
+
+
+
+  datasetDF <- do.call(rbind, lapply(obj, function(x) {
+    data.frame(
+      prior_df = paste0("prior.df = ", round(x$dge$prior.df, 2)),
+      nVars = nrow(x$dge$counts),
+      nSamples = ncol(x$dge$counts)
+    )
+  })) %>%
+    dplyr::mutate(AveLogCPMDisp = 0.8 * max(featureDF$AveLogCPMDisp)) %>%
+    dplyr::mutate(Tagwise = 0.9 * max(featureDF$Tagwise)) %>%
+    dplyr::mutate(dataset = names(obj))
+
+
+  message("Calculating data property.")
+  AveLogCPM_Tagwise<- makeDF(df = featureDF, column = c("AveLogCPMDisp", "Tagwise"),
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+
+
+  Mean_dispersion <- makeDF(df = featureDF, column = c("baseMeanDisp", "dispGeneEst"),
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+
+  Mean_Var <- makeDF(df = featureDF, column = c("average_log2_cpm", "variance_log2_cpm"),
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+
+  Lib <- makeDF(df = sampleDF, column = "Libsize",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  TMM <- makeDF(df = sampleDF, column = "TMM",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  EffLibsize <- makeDF(df = sampleDF, column = "EffLibsize",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  AveLogCPM <- makeDF(df = featureDF, column = "AveLogCPM",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  sampleFraczero <- makeDF(df = sampleDF, column = "Fraczero",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  featureFraczero <- makeDF(df = featureDF, column = "Fraczero",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  sampleCorrelation <- makeDF(df = sampleCorrDF, column = "Correlation",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  featureCorrelation <- makeDF(df = featureCorrDF, column = "Correlation",
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  Lib_Fraczero <- makeDF(df = sampleDF, column = c("Libsize", "Fraczero"),
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+  AveLogCPM_Fraczero <- makeDF(df = featureDF, column = c("AveLogCPM", "Fraczero"),
+         permutationPvalues = permutationPvalues, nPermutations = nPermutations,
+         subsampleSize = subsampleSize, kmin = kmin, kfrac = kfrac)
+
+
+
+  final_list <- list(AveLogCPM_Tagwise=AveLogCPM_Tagwise, Mean_dispersion=Mean_dispersion,
+                     Mean_Var = Mean_Var, Lib=Lib, TMM=TMM, EffLibsize=EffLibsize,
+                     AveLogCPM=AveLogCPM, sampleFraczero=sampleFraczero,featureFraczero=featureFraczero,
+                     sampleCorrelation=sampleCorrelation,featureCorrelation=featureCorrelation,
+                     Lib_Fraczero=Lib_Fraczero,AveLogCPM_Fraczero=AveLogCPM_Fraczero)
+
+  #write.csv(final_list[1], "final.csv", row.names = FALSE)
+
+  return(final_list)
+}
