@@ -32,6 +32,8 @@ Imports:
     scater,
     ks,
     kBET
+Remotes:
+    github::immunogenomics/lisi
 Suggests:
     knitr,
     testthat (>= 3.0.0)
