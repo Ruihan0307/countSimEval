@@ -29,7 +29,6 @@
 #'
 calculateStats <- function(df, ds1, ds2, column, subsampleSize,
                            permute = FALSE, kmin, kfrac, xmin, xmax) {
-  set.seed(123)
   ## Remove rows with NA values in column(s) of interest
   df <- df[rowSums(is.na(df[, column, drop = FALSE])) == 0, ]
 

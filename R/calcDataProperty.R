@@ -14,9 +14,8 @@
 #'
 #'
 #' @export
-calcDataProperty <- function(matList, maxNForDisp, maxNForCorr,
-                  subsampleSize, kfrac, kmin) {
-  set.seed(123)
+calcDataProperty <- function(matList, maxNForDisp = Inf, maxNForCorr = 25,
+                                   subsampleSize = 1000, kfrac = 0.05, kmin = 5) {
   print("Calculate data attribute statistics")
 
   if (!is(matList, "list")) {
@@ -178,7 +177,17 @@ calcDataProperty <- function(matList, maxNForDisp, maxNForCorr,
 }
 
 
-
+#' Standardize the output of the calcDataProperty function to calculate scores
+#' @description
+#' Standardize the output of the calcDataProperty function to calculate scores.
+#'
+#'
+#' @param tmp_list The result returned by the calcDataProperty function
+#'
+#' @return The standardized results
+#'
+#'
+#' @export
 StandardizedCalculationScore <- function(tmp_list){
 
   #standardization

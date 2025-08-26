@@ -4,7 +4,14 @@
 \alias{calcDataProperty}
 \title{Calculate data attribute statistics}
 \usage{
-calcDataProperty(matList, maxNForDisp, maxNForCorr, subsampleSize, kfrac, kmin)
+calcDataProperty(
+  matList,
+  maxNForDisp = Inf,
+  maxNForCorr = 25,
+  subsampleSize = 1000,
+  kfrac = 0.05,
+  kmin = 5
+)
 }
 \arguments{
 \item{matList}{List of gene expression count matrices}
