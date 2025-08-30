@@ -4,7 +4,7 @@
 \alias{calculateDEGs}
 \title{Calculate the number of DEGs between groups}
 \usage{
-calculateDEGs(expr_data, group, P.Value, logFC)
+calculateDEGs(expr_data, group, P.Value, logFC, method)
 }
 \arguments{
 \item{expr_data}{Gene expression matrix}

@@ -4,7 +4,7 @@
 \alias{calculateDEGsParameters}
 \title{Calculate the difference in DEGs between the first dataset and other datasets}
 \usage{
-calculateDEGsParameters(SCEList, P.Value = 0.05, logFC = 1)
+calculateDEGsParameters(SCEList, P.Value = 0.05, logFC = 1, method = "GLM")
 }
 \arguments{
 \item{SCEList}{SCEList is a list containing multiple SingleCellExperiment objects. Please ensure that each SCE object has a 'group' column in its colData, and that the number of types in each SCE object group is the same.}
@@ -12,6 +12,8 @@ calculateDEGsParameters(SCEList, P.Value = 0.05, logFC = 1)
 \item{P.Value}{P.Value threshold for screening differentially expressed genes}
 
 \item{logFC}{LogFC threshold for screening differentially expressed genes}
+
+\item{method}{The method of using edgeR for DEA, method must be GLM or QLF.}
 }
 \value{
 List of DEG quantities

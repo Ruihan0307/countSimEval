@@ -9,7 +9,7 @@
 #'
 #'
 #' @export
-calculateDEGs <- function(expr_data, group, P.Value, logFC){
+calculateDEGs <- function(expr_data, group, P.Value, logFC, method){
 
   message(paste0("There are ",nlevels(factor(group))," groups"))
 
@@ -34,9 +34,15 @@ calculateDEGs <- function(expr_data, group, P.Value, logFC){
 
   # 估计数据的离散度 —— common离散度、trended离散度、tagwise离散度
   dgelist <- estimateDisp(dgelist, design, robust=T)
-  #plotBCV(dgelist)
-  ## To perform likelihood ratio test：scRNA-seq and no replicates data
-  fit <- glmFit(dgelist, design, robust=T)
+
+  # 提供选择GLM和QLF
+  if(method == 'GLM'){
+    fit <- glmFit(dgelist, design, robust=T)
+  } else if(method == 'QLF'){
+    fit <- glmQLFit(dgelist, design, robust=T)
+  } else{
+    stop("method must be GLM or QLF.")
+  }
 
   n <- nlevels(factor(group))
   contrast <- list()
@@ -57,7 +63,14 @@ calculateDEGs <- function(expr_data, group, P.Value, logFC){
   }
 
   data_list <- lapply(contrast, function(contrast) {
-    lt <- glmLRT(fit, contrast=contrast)
+    if(method == 'GLM'){
+      lt <- glmLRT(fit, contrast=contrast)
+    } else if(method == 'QLF'){
+      lt <- glmQLFTest(fit, contrast=contrast)
+    } else{
+      stop("method must be GLM or QLF.")
+    }
+
     tempDEG <- topTags(lt, n = nrow(dgelist$counts))
 
     origin_DEGs <- as.data.frame(tempDEG)
@@ -81,6 +94,7 @@ calculateDEGs <- function(expr_data, group, P.Value, logFC){
 #' @param P.Value P.Value threshold for screening differentially expressed genes
 #' @param logFC LogFC threshold for screening differentially expressed genes
 #' @param SCEList SCEList is a list containing multiple SingleCellExperiment objects. Please ensure that each SCE object has a 'group' column in its colData, and that the number of types in each SCE object group is the same.
+#' @param method The method of using edgeR for DEA, method must be GLM or QLF.
 #'
 #' @return List of DEG quantities
 #' @import SingleCellExperiment
@@ -92,7 +106,7 @@ calculateDEGs <- function(expr_data, group, P.Value, logFC){
 #'
 #' @export
 
-calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1){
+calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1, method = 'GLM'){
 
   ##数据集数
   nDatasets <- length(SCEList)
@@ -102,7 +116,7 @@ calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1){
   DEGS <- lapply(SCEList, function(sce){
     expr_data <- assays(sce)$counts
     group <- sce$group
-    calculateDEGs(expr_data, group, P.Value = P.Value, logFC = logFC)
+    calculateDEGs(expr_data, group, P.Value = P.Value, logFC = logFC, method = method)
   })
   new_list <- setNames(vector("list", length(DEGS) - 1), names(DEGS)[-1])
 
