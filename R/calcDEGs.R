@@ -125,8 +125,15 @@ calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1, method =
     down_count <- sum(DEGS[[1]][[name]]$change == "down")
 
     for (i in seq_along(new_list)) {
-      new_list[[i]][[name]]$up = abs((sum(DEGS[[i+1]][[name]]$change == "up")-up_count)*2)/(sum(DEGS[[i+1]][[name]]$change == "up")+up_count)
-      new_list[[i]][[name]]$down = abs((sum(DEGS[[i+1]][[name]]$change == "down")-down_count)*2)/(sum(DEGS[[i+1]][[name]]$change == "down")+down_count)
+      # 计算上调基因相似度
+      A_up <- sum(DEGS[[i+1]][[name]]$change == "up")
+      similarity_up <- 2 - (abs((A_up - up_count) * 2) / (A_up + up_count))
+      new_list[[i]][[name]]$up <- similarity_up
+
+      # 计算下调基因相似度
+      A_down <- sum(DEGS[[i+1]][[name]]$change == "down")
+      similarity_down <- 2 - (abs((A_down - down_count) * 2) / (A_down + down_count))
+      new_list[[i]][[name]]$down <- similarity_down
     }
   }
   new_list <- lapply(new_list, function(name){
