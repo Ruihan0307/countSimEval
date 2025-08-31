@@ -105,12 +105,22 @@ calculateDEGs <- function(expr_data, group, P.Value, logFC, method){
 #' test <- calculateDEGsParameters(SCEList)
 #'
 #' @export
-
 calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1, method = 'GLM'){
 
   ##数据集数
   nDatasets <- length(SCEList)
   message(paste("There are a total of ", nDatasets, "datasets"))
+
+
+  if (!is(SCEList, "list")) {
+    stop("SCEList must be a list.", call. = FALSE)
+  }
+
+  if (length(setdiff(unique(names(SCEList)),
+                     c("", NA, NULL))) != length(SCEList)) {
+    stop("If SCEList is List, it must be a named list, ",
+         "with a unique name for each element.", call. = FALSE)
+  }
 
   ## sce对象必须有counts和group
   DEGS <- lapply(SCEList, function(sce){
