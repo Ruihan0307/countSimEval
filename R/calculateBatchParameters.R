@@ -120,7 +120,10 @@ calculateBatch <- function(mat, batch_info, TSNE_ntop, PCA_ntop){
   return(data_list)
 }
 
-#' Calculate batch effects and return the results as a list
+#' Calculate batch effect evaluation indicators and normalize.
+#'
+#' @description
+#' This method calculates batch effects for each SCE object and normalizes the indicators. The higher the normalization value, the more prominent the batch effect.
 #'
 #' @param SCEList SCEList is a list containing multiple SingleCellExperiment objects.Please ensure that each SCE object has a 'Batch' column in its colData.
 #' @param TSNE_ntop A numerical scalar that specifies the number of features with the highest variance used for TSNE dimensionality reduction.
@@ -132,7 +135,7 @@ calculateBatch <- function(mat, batch_info, TSNE_ntop, PCA_ntop){
 #' test <- calculateBatchParameters(SCEList)
 #'
 #'
-#' @return List of Batch Effect evaluation
+#' @return Batch effect evaluation list and normalized values
 #' @export
 
 calculateBatchParameters <- function(SCEList, TSNE_ntop = 500, PCA_ntop = 500){
@@ -157,4 +160,120 @@ calculateBatchParameters <- function(SCEList, TSNE_ntop = 500, PCA_ntop = 500){
     Batch <- sce$Batch
     calculateBatch(expr_data, Batch, TSNE_ntop = TSNE_ntop, PCA_ntop = PCA_ntop)
   })
+
+  tmp_list <- vector("list", length(result_list))
+  names(tmp_list) <- names(result_list)  # 保留原名称
+
+  for (i in seq_along(result_list)) {
+    # 提取当前元素的值
+    current_pca_kBET <- result_list[[i]]$kBET$PCA_kBET$summary$kBET.observed[1]
+    current_tsne_kBET <- result_list[[i]]$kBET$TSNE_kBET$summary$kBET.observed[1]
+
+    current_pca_asw <- result_list[[i]]$ASW$PCA_ASW
+    current_tsne_asw <- result_list[[i]]$ASW$TSNE_ASW
+
+    current_pca_LISI <- result_list[[i]]$LISI$PCA_LISI
+    current_tsne_LISI <- result_list[[i]]$LISI$TSNE_LISI
+
+    current_pca_ARI <- result_list[[i]]$ARI$PCA_ARI
+    current_tsne_ARI <- result_list[[i]]$ARI$TSNE_ARI
+
+    tmp_list[[i]] <- list(
+      kBET = list(
+        PCA_kBET = current_pca_kBET,
+        TSNE_kBET = current_tsne_kBET
+        #UMAP_asw = diff_umap_asw
+      ),
+      ASW = list(
+        PCA_ASW = current_pca_asw,
+        TSNE_ASW = current_tsne_asw
+      ),
+      LISI = list(
+        PCA_LISI = current_pca_LISI,
+        TSNE_LISI = current_tsne_LISI
+      ),
+      ARI = list(
+        PCA_ARI = current_pca_ARI,
+        TSNE_ARI = current_tsne_ARI
+      )
+    )
+  }
+
+  # 标准化与归一化函数
+  scale_and_normalize <- function(data_matrix, center = TRUE, scale = TRUE) {
+
+    if(all(data_matrix == data_matrix[1])){
+      normalized_data=array(1, dim = length(data_matrix))
+    }
+    else{
+      # 1. 标准化数据
+      scaled_data <- scale(data_matrix, center = center, scale = scale)
+
+      # 2. 计算最小最大值（忽略NA）
+      min_val <- min(scaled_data, na.rm = TRUE)
+      max_val <- max(scaled_data, na.rm = TRUE)
+
+      # 3. 最小-最大归一化到[0,1]范围
+      normalized_data <- (scaled_data - min_val) / (max_val - min_val)
+    }
+
+
+    # 保留原始的行列名
+    rownames(normalized_data) <- names(data_matrix)
+
+    return(normalized_data)
+  }
+
+  #获得对应指标的值，并将其归一化
+  pca_kBET_matrix <- sapply(tmp_list, function(x) abs(x$kBET$PCA_kBET))
+  pca_kBET_normalize <- scale_and_normalize(pca_kBET_matrix)
+
+  tsne_kBET_matrix <- sapply(tmp_list, function(x) abs(x$kBET$TSNE_kBET))
+  tsne_kBET_normalize <- scale_and_normalize(tsne_kBET_matrix)
+
+  pca_ASW_matrix <- sapply(tmp_list, function(x) abs(x$ASW$PCA_ASW))
+  pca_ASW_normalize <- scale_and_normalize(pca_ASW_matrix)
+
+  tsne_ASW_matrix <- sapply(tmp_list, function(x) abs(x$ASW$TSNE_ASW))
+  tsne_ASW_normalize <- scale_and_normalize(tsne_ASW_matrix)
+
+  pca_LISI_matrix <- sapply(tmp_list, function(x) -abs(x$LISI$PCA_LISI))
+  pca_LISI_normalize <- scale_and_normalize(pca_LISI_matrix)
+
+  tsne_LISI_matrix <- sapply(tmp_list, function(x) -abs(x$LISI$TSNE_LISI))
+  tsne_LISI_normalize <- scale_and_normalize(tsne_LISI_matrix)
+
+  pca_ARI_matrix <- sapply(tmp_list, function(x) abs(x$ARI$PCA_ARI))
+  pca_ARI_normalize <- scale_and_normalize(pca_ARI_matrix)
+
+  tsne_ARI_matrix <- sapply(tmp_list, function(x) abs(x$ARI$TSNE_ARI))
+  tsne_ARI_normalize <- scale_and_normalize(tsne_ARI_matrix)
+
+  score_list <- tmp_list
+
+  #将数据放入score_list
+  for (i in seq_along(tmp_list)) {
+    score_list[[i]]$kBET$PCA_kBET <- pca_kBET_normalize[[i]]
+    score_list[[i]]$kBET$TSNE_kBET <- tsne_kBET_normalize[[i]]
+
+    score_list[[i]]$ASW$PCA_ASW <- pca_ASW_normalize[[i]]
+    score_list[[i]]$ASW$TSNE_ASW <- tsne_ASW_normalize[[i]]
+
+    score_list[[i]]$LISI$PCA_LISI <- pca_LISI_normalize[[i]]
+    score_list[[i]]$LISI$TSNE_LISI <- tsne_LISI_normalize[[i]]
+
+    score_list[[i]]$ARI$PCA_ARI <- pca_ARI_normalize[[i]]
+    score_list[[i]]$ARI$TSNE_ARI <- tsne_ARI_normalize[[i]]
+  }
+  #计算PCA和TSNE和sum
+  for (i in seq_along(score_list)) {
+    score_list[[i]]$score$PCA <- score_list[[i]]$ASW$PCA_ASW + score_list[[i]]$kBET$PCA_kBET + score_list[[i]]$LISI$PCA_LISI + score_list[[i]]$ARI$PCA_ARI
+
+    score_list[[i]]$score$TSNE <- score_list[[i]]$ASW$TSNE_ASW + score_list[[i]]$kBET$TSNE_kBET + score_list[[i]]$LISI$TSNE_LISI + score_list[[i]]$ARI$TSNE_ARI
+
+    score_list[[i]]$score$sum <- score_list[[i]]$score$PCA + score_list[[i]]$score$TSNE
+  }
+
+  return(list(result_list = result_list, normalized_list = score_list))
+
 }

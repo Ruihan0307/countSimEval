@@ -2,7 +2,7 @@
 % Please edit documentation in R/calculateBatchParameters.R
 \name{calculateBatchParameters}
 \alias{calculateBatchParameters}
-\title{Calculate batch effects and return the results as a list}
+\title{Calculate batch effect evaluation indicators and normalize.}
 \usage{
 calculateBatchParameters(SCEList, TSNE_ntop = 500, PCA_ntop = 500)
 }
@@ -14,10 +14,10 @@ calculateBatchParameters(SCEList, TSNE_ntop = 500, PCA_ntop = 500)
 \item{PCA_ntop}{A numerical scalar that specifies the number of features with the highest variance used for PCA dimensionality reduction.}
 }
 \value{
-List of Batch Effect evaluation
+Batch effect evaluation list and normalized values
 }
 \description{
-Calculate batch effects and return the results as a list
+This method calculates batch effects for each SCE object and normalizes the indicators. The higher the normalization value, the more prominent the batch effect.
 }
 \examples{
 data("splatter_sce_Batch", "SPARSim_sce_Batch")
