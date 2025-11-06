@@ -267,12 +267,21 @@ calculateBatchParameters <- function(SCEList, TSNE_ntop = 500, PCA_ntop = 500){
   }
   #计算PCA和TSNE和sum
   for (i in seq_along(score_list)) {
-    score_list[[i]]$score$PCA <- score_list[[i]]$ASW$PCA_ASW + score_list[[i]]$kBET$PCA_kBET + score_list[[i]]$LISI$PCA_LISI + score_list[[i]]$ARI$PCA_ARI
+    score_list[[i]]$score$PCA <- (score_list[[i]]$ASW$PCA_ASW + score_list[[i]]$kBET$PCA_kBET + score_list[[i]]$LISI$PCA_LISI + score_list[[i]]$ARI$PCA_ARI)/4
 
-    score_list[[i]]$score$TSNE <- score_list[[i]]$ASW$TSNE_ASW + score_list[[i]]$kBET$TSNE_kBET + score_list[[i]]$LISI$TSNE_LISI + score_list[[i]]$ARI$TSNE_ARI
+    score_list[[i]]$score$TSNE <- (score_list[[i]]$ASW$TSNE_ASW + score_list[[i]]$kBET$TSNE_kBET + score_list[[i]]$LISI$TSNE_LISI + score_list[[i]]$ARI$TSNE_ARI)/4
 
-    score_list[[i]]$score$sum <- score_list[[i]]$score$PCA + score_list[[i]]$score$TSNE
+    score_list[[i]]$score$sum <- (score_list[[i]]$score$PCA + score_list[[i]]$score$TSNE)/2
   }
+
+  sum <- sapply(score_list, function(x) x$score$sum)
+
+  result_df <- data.frame(
+    sum_score = sum,
+    row.names = names(score_list)  # 设置行名为列表名
+  )
+
+  score_list$score <- result_df
 
   return(list(result_list = result_list, normalized_list = score_list))
 

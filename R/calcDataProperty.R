@@ -315,15 +315,15 @@ StandardizedCalculationScore <- function(tmp_list){
   tmp_list <- lapply(tmp_list, function(element) {
 
     if (length(colnames(element)) == 8) {
-      element$score <- (1 - element$`NN rejection fraction`) +
+      element$score <- ((1 - element$`NN rejection fraction`) +
         (1 - abs(element$`Average silhouette width`))/2 +
         (1 - abs(element$`Average local silhouette width`))/2 +
         element$`Multivariate KS statistic` +
-        element$`KDE Z-statistic`
+        element$`KDE Z-statistic`)/4
     }else{
-      element$score <- (1-element$`K-S statistic`)+(1-element$`Scaled area between eCDFs`)+
+      element$score <- ((1-element$`K-S statistic`)+(1-element$`Scaled area between eCDFs`)+
         (1-element$`Runs statistic`)+(1-element$`NN rejection fraction`)+
-        (1-abs(element$`Average silhouette width`))/2+(1-abs(element$`Average local silhouette width`))/2
+        (1-abs(element$`Average silhouette width`))/2+(1-abs(element$`Average local silhouette width`))/2)/5
     }
     return(element)
   })

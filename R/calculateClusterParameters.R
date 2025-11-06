@@ -311,15 +311,15 @@ calculateClusterParameters <- function(SCEList, TSNE_ntop = 500, PCA_ntop = 500)
   }
 
   for (i in seq_along(normalized_list)) {
-    normalized_list[[i]]$score$PCA <- (1-normalized_list[[i]]$ASW$PCA_asw)+(1-normalized_list[[i]]$Dunn$PCA_Dunn)+
+    normalized_list[[i]]$score$PCA <- ((1-normalized_list[[i]]$ASW$PCA_asw)+(1-normalized_list[[i]]$Dunn$PCA_Dunn)+
       (1-normalized_list[[i]]$connectivity$PCA_connectivity)+(1-normalized_list[[i]]$CHI$PCA_CHI)+
-      (1-normalized_list[[i]]$DBI$PCA_DBI)
+      (1-normalized_list[[i]]$DBI$PCA_DBI))/5
 
-    normalized_list[[i]]$score$TSNE <- (1-normalized_list[[i]]$ASW$TSNE_asw)+(1-normalized_list[[i]]$Dunn$TSNE_Dunn)+
+    normalized_list[[i]]$score$TSNE <- ((1-normalized_list[[i]]$ASW$TSNE_asw)+(1-normalized_list[[i]]$Dunn$TSNE_Dunn)+
       (1-normalized_list[[i]]$connectivity$TSNE_connectivity)+(1-normalized_list[[i]]$CHI$TSNE_CHI)+
-      (1-normalized_list[[i]]$DBI$TSNE_DBI)
+      (1-normalized_list[[i]]$DBI$TSNE_DBI))/5
 
-    normalized_list[[i]]$score$sum <- normalized_list[[i]]$score$PCA + normalized_list[[i]]$score$TSNE
+    normalized_list[[i]]$score$sum <- (normalized_list[[i]]$score$PCA + normalized_list[[i]]$score$TSNE)/2
 
   }
 

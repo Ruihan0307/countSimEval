@@ -137,12 +137,12 @@ calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1, method =
     for (i in seq_along(new_list)) {
       # 计算上调基因相似度
       A_up <- sum(DEGS[[i+1]][[name]]$change == "up")
-      similarity_up <- 2 - (abs((A_up - up_count) * 2) / (A_up + up_count))
+      similarity_up <- 1 - (abs((A_up - up_count)) / (A_up + up_count))
       new_list[[i]][[name]]$up <- similarity_up
 
       # 计算下调基因相似度
       A_down <- sum(DEGS[[i+1]][[name]]$change == "down")
-      similarity_down <- 2 - (abs((A_down - down_count) * 2) / (A_down + down_count))
+      similarity_down <- 1 - (abs((A_down - down_count)) / (A_down + down_count))
       new_list[[i]][[name]]$down <- similarity_down
     }
   }
@@ -165,6 +165,7 @@ calculateDEGsParameters <- function(SCEList, P.Value = 0.05, logFC = 1, method =
   result_df <- data.frame(
     total_up = total_up,
     total_down = total_down,
+    sum = (total_up+total_down)/2,
     row.names = names(new_list)  # 设置行名为列表名
   )
   new_list$score <- result_df
